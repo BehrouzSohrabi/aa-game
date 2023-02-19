@@ -1,6 +1,6 @@
-### "aa" game for chrome
+### aa game
 
-A simple replica of 'aa' game for chrome.
+A simple replica of 'aa' game as a chrome extension, made with [p5.js](https://github.com/processing/p5.js).
 
 [Extension Page](https://chrome.google.com/webstore/detail/aa-throw-pins-precisely/aphljdjhdgebedmecmhngifnnhenboao)
 

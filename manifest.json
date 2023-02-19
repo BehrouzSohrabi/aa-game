@@ -1,6 +1,6 @@
 {
-  "name": "AA | Throw Pins Precisely",
-  "version": "0.0.9",
+  "name": "aa | Throw Pins Precisely",
+  "version": "1.0.0",
   "description": "Tests your aim and precision",
   "manifest_version": 3,
   "author": "Behrouz Sohrabi",
@@ -15,7 +15,7 @@
       "24": "icon.png",
       "32": "icon.png"
     },
-    "default_title": "AA Game",
+    "default_title": "aa Game",
     "default_popup": "index.html"
   }
 }
