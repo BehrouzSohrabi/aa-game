@@ -1,5 +1,5 @@
 // clear settings and history on storage
-chrome.storage.sync.clear(() => {});
+// chrome.storage.sync.clear(() => {});
 
 // variables
 let environment, scoreTracker, target, pinSource, updateStorage;
