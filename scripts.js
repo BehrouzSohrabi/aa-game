@@ -1,1 +1,260 @@
-let gameManager,scoreKeeper,rotator,pinSpawner,updateStorage,settings={score:0};function isEmpty(t){return"object"!=typeof t||0===Object.keys(t).length}chrome.storage.sync.get("settings",(t=>{isEmpty(t.settings)||(settings=t.settings,console.log(settings))}));const lightYellow=[255,255,235],scaryBloodRed=[255,0,0],niceGreen=[120,220,50],dark=[30,30,30];function setup(){createCanvas(320,480);const t=createVector(.5*width,.33*height);rotator=new Rotator(t.x,t.y),scoreKeeper=new ScoreKeeper(t.x,t.y);const e=createVector(.5*width,.85*height);pinSpawner=new PinSpawner(e.x,e.y),gameManager=new GameManager}function draw(){gameManager.setRotationSpeed();let t=getScore();gameManager.isGameOver?(background(scaryBloodRed),updateStorage&&t>settings.score&&(settings.score=t,chrome.storage.sync.set({settings:settings}),updateStorage=!1,console.log(t))):(updateStorage=!0,t>settings.score?background(niceGreen):background(lightYellow),pinSpawner.updatePins(rotator),pinSpawner.render()),pinSpawner.pins.forEach((t=>t.render())),scoreKeeper.setScore(t),rotator.render(),scoreKeeper.render()}function getScore(){let t=0;return pinSpawner.pins.forEach((e=>{e.isActive||t++})),t}class GameManager{constructor(){this.setInitialConditions()}setInitialConditions(){this.isGameOver=!1,this.rotateFast=!1,this.rotationSpeed=PI/64,this.date=new Date,this.time=this.date.getTime(),this.timeInterval=1}setRotationSpeed(){let t=(new Date).getTime();t>this.time+1e3*this.timeInterval&&(this.time=t,this.rotateFast?(this.rotateFast=!1,this.rotationSpeed=PI/128):(this.rotateFast=!0,this.rotationSpeed=PI/64))}endGame(){this.isGameOver=!0,setTimeout(function(){pinSpawner.resetPins(),this.setInitialConditions()}.bind(this),2e3)}}class ScoreKeeper{constructor(t,e){this.position=createVector(t,e),this.score=0}resetScore(){this.score=0}setScore(t){this.score=t}render(){push(),textAlign(CENTER,CENTER),noStroke(),fill(lightYellow),textSize(48),text(this.score,this.position.x,this.position.y),pop(),push(),textAlign(CENTER,CENTER),noStroke(),fill(dark),textSize(15),text(`Your Best: ${settings.score}`,this.position.x,450),pop()}}class PinSpawner{constructor(t,e){this.position=createVector(t,e),this.pins=[]}resetPins(){this.pins=[]}spawnPin(t,e){const i=new Pin(this.position.x,this.position.y,t,e);this.pins.push(i)}updatePins(t){for(let e of this.pins)if(e.isActive){let i=t.position.y+.5*t.diameter,s=e.position.y-e.pinLength<i;e.updateActivePinPosition(s,this.pins)}else e.updateStuckPinPosition()}render(){noStroke(),fill(186),circle(this.position.x,this.position.y,.05*height)}}class Pin{constructor(t,e,i,s){this.position=createVector(t,e),this.isActive=!0,this.speed=.05*height,this.pinLength=.1*height,this.pinPointPos=createVector(t,e-this.pinLength),this.rotatorPivot=i,this.rotatorRadius=s,this.angle=PI/2,this.radius=.016*height}updateActivePinPosition(t,e){let i=this.checkForPinCollision(e);t?this.isActive=!1:i?gameManager.endGame():(this.position.y-=this.speed,this.pinPointPos.y-=this.speed)}checkForPinCollision(t){let e=!1;return t.forEach((t=>{dist(this.pinPointPos.x,this.pinPointPos.y,t.position.x,t.position.y)<t.radius&&(e=!0)})),e}updateStuckPinPosition(){this.angle+=gameManager.rotationSpeed;let t=this.rotatorRadius+this.pinLength;this.position.x=this.rotatorPivot.x+t*cos(this.angle),this.position.y=this.rotatorPivot.y+t*sin(this.angle),this.pinPointPos.x=this.rotatorPivot.x+this.rotatorRadius*cos(this.angle),this.pinPointPos.y=this.rotatorPivot.y+this.rotatorRadius*sin(this.angle)}render(){const{x:t,y:e}=this.position;push(),stroke(12),strokeWeight(3),fill(12),line(t,e,this.pinPointPos.x,this.pinPointPos.y),circle(t,e,2*this.radius),pop()}}class Rotator{constructor(t,e){this.position=createVector(t,e),this.diameter=.25*height}render(){push(),translate(this.position.x,this.position.y),noStroke(),fill(12),circle(0,0,this.diameter),pop()}}function mouseClicked(){if(!gameManager.isGameOver){let t=rotator.position,e=.5*rotator.diameter;pinSpawner.spawnPin(t,e)}return!1}
+// clear settings and history on storage
+chrome.storage.sync.clear(() => {});
+
+// variables
+let environment, scoreTracker, target, pinSource, updateStorage;
+let settings = {
+	score: 0,
+};
+
+// fetch user settings (basically scores for now)
+chrome.storage.sync.get('settings', (data_settings) => {
+	if (!isEmpty(data_settings.settings)) {
+		settings = data_settings.settings;
+		console.log(settings);
+	}
+});
+
+// game settings
+const game = {
+    resetTimeout: 2000,
+    width: 320,
+    height: 480
+}
+const colors = {
+	yellow: [255, 255, 235],
+	green: [125, 220, 50],
+	red: [245, 10, 0],
+	dark: [25, 25, 40],
+	gray: [180, 180, 150],
+};
+const rotationSpeeds = {
+    steps: [0.03, 0.015, 0.05, -0.03, -0.015, -0.05],
+    timeout: 1000
+}
+const targetProperties = {
+    x: game.width/2,
+    y: game.height/4,
+    diameter: game.height/5,
+    scoreY: game.height/4 + game.height/100,
+    highScoreY: game.height - game.height/15,
+}
+const pinSourceProperties = {
+    x: game.width/2,
+    y: game.height*.85,
+    diameter: game.height * 0.03,
+    speed: game.height * 0.04,
+    pinLength: game.height * 0.13,
+    tipRadius: game.height * 0.012
+}
+
+// p5js methods
+function setup() {
+	createCanvas(game.width, game.height);
+	environment = new Environment();
+	target = new Target();
+	pinSource = new PinSource();
+	scoreTracker = new ScoreTracker();
+}
+
+function mouseClicked() {
+	if (!environment.isGameOver) {
+		pinSource.throwPin();
+	}
+	return false;
+}
+
+function draw() {
+	const isGameOver = environment.isGameOver;
+	const { red, green, yellow } = colors;
+	let score = 0;
+	pinSource.pins.forEach((p) => {
+		if (!p.missedTarget) {
+			score++;
+		}
+	});
+	if (isGameOver) {
+		background(red);
+		updateScore(score);
+	} else {
+		background(score > settings.score ? green : yellow);
+		pinSource.updatePins(target);
+	}
+    pinSource.render();
+	pinSource.pins.forEach((pin) => pin.render());
+	scoreTracker.setScore(score);
+	target.render();
+	scoreTracker.render();
+	function updateScore(score) {
+		if (score > settings.score) {
+			settings.score = score;
+			chrome.storage.sync.set({ settings });
+		}
+	}
+}
+
+// game classes
+class Environment {
+	constructor() {
+		this.resetTimer;
+		this.isGameOver = false;
+		this.setRotationSpeed();
+	}
+	setRotationSpeed() {
+		this.rotationSpeed =
+			rotationSpeeds.steps[
+				Math.floor(Math.random() * rotationSpeeds.steps.length)
+			];
+		this.resetTimer = setTimeout(() => {
+			this.setRotationSpeed();
+		}, rotationSpeeds.timeout);
+	}
+	endGame() {
+		this.isGameOver = true;
+		clearTimeout(this.resetTimer);
+		setTimeout(() => {
+			this.isGameOver = false;
+			pinSource.pins.length = 0;
+			this.setRotationSpeed();
+		}, game.resetTimeout);
+	}
+}
+
+class PinSource {
+	constructor() {
+		this.pins = [];
+	}
+	throwPin() {
+		this.pins.push(new Pin());
+	}
+	updatePins(target) {
+		for (let pin of this.pins) {
+			pin.missedTarget
+				? pin.updateOnTargetPin(pin.position.y - pinSourceProperties.pinLength < target.position.y + target.diameter/2, this.pins)
+				: pin.updateStuckPin();
+		}
+	}
+	render() {
+		circle(pinSourceProperties.x, pinSourceProperties.y, pinSourceProperties.diameter);
+		stroke(colors.dark);
+		strokeWeight(7);
+		noFill();
+	}
+}
+
+class Pin {
+	constructor() {
+		this.missedTarget = true;
+		this.position = createVector(pinSourceProperties.x, pinSourceProperties.y);
+		this.pinPointPos = createVector(pinSourceProperties.x, pinSourceProperties.y - pinSourceProperties.pinLength);
+		this.tipRadius = pinSourceProperties.tipRadius;
+		this.angle = PI/2;
+	}
+
+	updateOnTargetPin(didPinHitTarget, pins) {
+		const didPinHitPin = this.collision(pins);
+		if (didPinHitTarget) {
+			this.missedTarget = false;
+		} else if (didPinHitPin) {
+			environment.endGame();
+		} else {
+			this.position.y -= pinSourceProperties.speed;
+			this.pinPointPos.y -= pinSourceProperties.speed;
+		}
+	}
+
+	updateStuckPin() {
+        this.angle += environment.rotationSpeed;
+        const radius = target.diameter/2 + pinSourceProperties.pinLength;
+        this.position = createVector(
+          target.position.x + radius * cos(this.angle),
+          target.position.y + radius * sin(this.angle),
+        );
+        this.pinPointPos = createVector(
+          target.position.x + target.diameter/2 * cos(this.angle),
+          target.position.y + target.diameter/2 * sin(this.angle),
+        );
+	}
+
+	collision(pins) {
+		let didPinHitPin = false;
+		for (const p of pins) {
+			let distance = dist(
+				this.pinPointPos.x,
+				this.pinPointPos.y,
+				p.position.x,
+				p.position.y,
+			);
+			if (distance <= p.tipRadius) {
+				didPinHitPin = true;
+			}
+		}
+		return didPinHitPin;
+	}
+
+	render() {
+		push();
+		stroke(colors.dark);
+		strokeWeight(1.5);
+		line(
+			this.position.x,
+			this.position.y,
+			this.pinPointPos.x,
+			this.pinPointPos.y,
+		);
+		fill(colors.dark);
+		circle(this.position.x, this.position.y, this.tipRadius*2);
+		pop();
+	}
+}
+
+class Target {
+	constructor() {
+		this.position = createVector(targetProperties.x, targetProperties.y);
+		this.diameter = targetProperties.diameter;
+	}
+	render() {
+		push();
+		translate(this.position.x, this.position.y);
+		noStroke();
+		fill(colors.dark);
+		circle(0, 0, this.diameter);
+		pop();
+	}
+}
+
+class ScoreTracker {
+	constructor() {
+		this.score = 0;
+	}
+	resetScore() {
+		this.score = 0;
+	}
+	setScore(score) {
+		this.score = score;
+	}
+	render() {
+		push();
+		textAlign(CENTER, CENTER);
+		noStroke();
+		fill(colors.yellow);
+		textSize(40);
+		text(this.score, targetProperties.x, targetProperties.scoreY);
+		pop();
+
+		if (settings.score !== undefined) {
+			push();
+			textAlign(CENTER, CENTER);
+			noStroke();
+			fill(colors.dark);
+			textSize(15);
+			text(`Your Best: ${settings.score}`, targetProperties.x, targetProperties.highScoreY);
+			pop();
+		}
+	}
+}
+
+// helper functions
+function isEmpty(obj) {
+	return typeof obj != 'object' || Object.keys(obj).length === 0;
+}
