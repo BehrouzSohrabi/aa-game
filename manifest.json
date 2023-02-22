@@ -1,7 +1,7 @@
 {
-  "name": "aa | Throw Pins Precisely",
-  "version": "1.0.0",
-  "description": "Tests your aim and precision",
+  "name": "aa | Accuracy Above All",
+  "version": "1.0.2",
+  "description": "Tests your Aim and Accuracy",
   "manifest_version": 3,
   "author": "Behrouz Sohrabi",
   "permissions": ["storage"],
